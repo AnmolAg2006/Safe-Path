@@ -5,8 +5,9 @@ export type WeatherPoint = {
   humidity: number
   wind: number
   condition: string
-  time: string   // 👈 forecast time
+  time: string   // ✅ THIS is your forecast time
 }
+
 
 export async function getForecastWeather(
   lat: number,

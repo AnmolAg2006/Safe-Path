@@ -24,20 +24,20 @@ export function buildRouteSegments(
 
     let level: RouteSegment["level"] = "SAFE"
 
-// 🌡 Heat
-if (w.temp >= 38) level = "CAUTION"
-
-// 💧 Humidity (KEY FIX)
-if (w.humidity >= 75) level = "CAUTION"
-if (w.humidity >= 85) level = "DANGER"
-
-// 💨 Wind
-if (w.wind >= 12) level = "CAUTION"
-if (w.wind >= 18) level = "DANGER"
-
-// 🌧 Weather
-if (["Rain", "Thunderstorm"].includes(w.condition)) {
+if (
+  w.temp >= 45 ||
+  w.wind >= 25 ||
+  w.humidity >= 90 ||
+  w.condition === "Thunderstorm"
+) {
   level = "DANGER"
+} else if (
+  w.temp >= 38 ||
+  w.wind >= 15 ||
+  w.humidity >= 80 ||
+  ["Rain", "Snow"].includes(w.condition)
+) {
+  level = "CAUTION"
 }
 
 
