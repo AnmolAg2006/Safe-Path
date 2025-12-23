@@ -5,11 +5,12 @@ import RoutePanel from "@/components/RoutePanel"
 import MapView from "@/components/MapView"
 import { getRoute } from "@/lib/route"
 import { sampleRoute } from "@/lib/routeSample"
-import { getWeather, WeatherPoint } from "@/lib/weather"
+import { getForecastWeather, WeatherPoint } from "@/lib/weather"
 import { calculateSafety } from "@/lib/safety"
 import { SafetyResult } from "@/lib/safety"
 import { buildRouteSegments } from "@/lib/routeSegments"
 import { RouteSegment } from "@/lib/routeSegments"
+import RouteLegend from "@/components/RouteLegend"
 
 export default function DashboardPage() {
   const [start, setStart] = useState<[number, number]>()
@@ -39,9 +40,13 @@ export default function DashboardPage() {
       const points = sampleRoute(result.route)
 
       // 4️⃣ Fetch weather for each sample point
-      const weatherData = await Promise.all(
-        points.map(([lat, lng]) => getWeather(lat, lng))
-      )
+      const weatherDataNested = await Promise.all(
+  points.map(([lat, lng]) => getForecastWeather(lat, lng))
+)
+
+// Flatten forecasts
+const weatherData = weatherDataNested.flat()
+
       const segs = buildRouteSegments(result.route, weatherData)
 setSegments(segs)
 
@@ -68,7 +73,7 @@ console.log("Safety:", safetyResult)
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-white">
-          Welcome, Anmol Agarwals
+          Welcome, Anmol Agarwal
         </h1>
         <p className="text-gray-300">
           Trust Score: <span className="text-white">75</span>
@@ -103,10 +108,18 @@ console.log("Safety:", safetyResult)
 
       {/* Route + Map */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <RoutePanel onAnalyze={onAnalyze} loading={loading} />
-        <MapView  segments={segments} />
+  {/* Left panel */}
+  <div className="space-y-4">
+    <RoutePanel onAnalyze={onAnalyze} loading={loading} />
+    <RouteLegend />
+  </div>
 
-      </div>
+  {/* Map */}
+  <div className="lg:col-span-2">
+    <MapView segments={segments} />
+  </div>
+</div>
+
     </div>
   )
 }

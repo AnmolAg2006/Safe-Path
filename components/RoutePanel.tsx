@@ -43,7 +43,7 @@ export default function RoutePanel({
       <button
         onClick={handleAnalyze}
         disabled={loading}
-        className="w-full bg-blue-600 text-white py-2 rounded disabled:opacity-50"
+        className="w-full bg-blue-600 text-white py-2 rounded disabled:opacity-50 hover:opacity-90"
       >
         {loading ? "Analyzing..." : "Analyze Route Safety"}
       </button>

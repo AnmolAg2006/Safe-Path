@@ -1,61 +1,98 @@
 import { WeatherPoint } from "./weather"
 
+export type SafetyLevel = "SAFE" | "CAUTION" | "DANGER"
+
 export type SafetyResult = {
   score: number
-  level: "SAFE" | "CAUTION" | "DANGER"
+  level: SafetyLevel
   reasons: string[]
 }
 
-export function calculateSafety(weather: WeatherPoint[]): SafetyResult {
-  let risk = 0
-  const reasons: string[] = []
-
-  for (const w of weather) {
-    // 🌡️ Temperature risk
-    if (w.temp >= 45) {
-      risk += 30
-      reasons.push("Extreme heat")
-    } else if (w.temp >= 40) {
-      risk += 20
-      reasons.push("High temperature")
-    }
-
-    // 💨 Wind risk
-    if (w.wind >= 20) {
-      risk += 25
-      reasons.push("Strong winds")
-    } else if (w.wind >= 12) {
-      risk += 15
-      reasons.push("Moderate winds")
-    }
-
-    // 🌧️ Weather condition risk
-    if (
-      ["Rain", "Thunderstorm", "Snow"].includes(w.condition)
-    ) {
-      risk += 20
-      reasons.push(w.condition)
-    }
-
-    // 💧 Humidity (fog / discomfort)
-    if (w.humidity >= 90) {
-      risk += 10
-      reasons.push("High humidity")
+/**
+ * IMD-style safety calculation
+ * - Gradual penalties
+ * - No instant 0 score
+ * - Realistic thresholds
+ */
+export function calculateSafety(
+  weather: WeatherPoint[]
+): SafetyResult {
+  if (!weather.length) {
+    return {
+      score: 100,
+      level: "SAFE",
+      reasons: [],
     }
   }
 
-  // Cap max risk
-  risk = Math.min(risk, 100)
+  let score = 100
+  const reasonsSet = new Set<string>()
 
-  const score = Math.max(100 - risk, 0)
+  for (const w of weather) {
+    // 🌡 Temperature
+    if (w.temp >= 38 && w.temp < 42) {
+      score -= 5
+      reasonsSet.add("High temperature")
+    }
+    if (w.temp >= 42) {
+      score -= 10
+      reasonsSet.add("Extreme heat")
+    }
 
-  let level: SafetyResult["level"] = "SAFE"
+    // 💧 Humidity
+    if (w.humidity >= 80 && w.humidity < 90) {
+      score -= 5
+      reasonsSet.add("High humidity")
+    }
+    if (w.humidity >= 90) {
+      score -= 8
+      reasonsSet.add("Very high humidity")
+    }
+
+    // 💨 Wind
+    if (w.wind >= 12 && w.wind < 20) {
+      score -= 8
+      reasonsSet.add("Strong winds")
+    }
+    if (w.wind >= 20) {
+      score -= 15
+      reasonsSet.add("Very strong winds")
+    }
+
+    // 🌧 Weather condition
+    if (w.condition === "Rain") {
+      score -= 8
+      reasonsSet.add("Rainfall expected")
+    }
+
+    if (w.condition === "Thunderstorm") {
+      score -= 20
+      reasonsSet.add("Thunderstorm risk")
+    }
+
+    if (w.condition === "Snow") {
+      score -= 25
+      reasonsSet.add("Snow conditions")
+    }
+
+    if (w.condition === "Fog" || w.condition === "Haze") {
+      score -= 6
+      reasonsSet.add("Low visibility")
+    }
+  }
+
+  // 🛑 Clamp score (IMD never shows absolute zero)
+  score = Math.max(20, Math.min(100, score))
+
+  // 🚦 Safety level mapping
+  let level: SafetyLevel = "SAFE"
+
+  if (score < 70) level = "CAUTION"
   if (score < 40) level = "DANGER"
-  else if (score < 70) level = "CAUTION"
 
   return {
-    score,
+    score: Math.round(score),
     level,
-    reasons: [...new Set(reasons)],
+    reasons: Array.from(reasonsSet),
   }
 }

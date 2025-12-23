@@ -1,50 +1,52 @@
-import { WeatherPoint } from "./weather"
+import { WeatherPoint } from "./weather";
 
 export type RouteSegment = {
-  points: [number, number][]
-  level: "SAFE" | "CAUTION" | "DANGER"
-}
+  points: [number, number][];
+  level: "SAFE" | "CAUTION" | "DANGER";
+  weather: WeatherPoint;
+};
 
 export function buildRouteSegments(
   route: [number, number][],
   weather: WeatherPoint[]
 ): RouteSegment[] {
-  if (!route.length || !weather.length) return []
+  if (!route.length || !weather.length) return [];
 
-  const segments: RouteSegment[] = []
-  const segmentLength = Math.floor(route.length / weather.length) || 1
+  const segments: RouteSegment[] = [];
+  const segmentLength = Math.floor(route.length / weather.length) || 1;
 
   for (let i = 0; i < weather.length; i++) {
-    const start = i * segmentLength
-    const end = i === weather.length - 1
-      ? route.length
-      : (i + 1) * segmentLength
+    const start = i * segmentLength;
+    const end =
+      i === weather.length - 1 ? route.length : (i + 1) * segmentLength;
 
-    const w = weather[i]
+    const w = weather[i];
 
     let level: RouteSegment["level"] = "SAFE"
 
-    if (
-      w.temp >= 40 ||
-      w.wind >= 15 ||
-      ["Rain", "Thunderstorm", "Snow"].includes(w.condition)
-    ) {
-      level = "CAUTION"
-    }
+// 🌡 Heat
+if (w.temp >= 38) level = "CAUTION"
 
-    if (
-      w.temp >= 45 ||
-      w.wind >= 25 ||
-      w.condition === "Thunderstorm"
-    ) {
-      level = "DANGER"
-    }
+// 💧 Humidity (KEY FIX)
+if (w.humidity >= 75) level = "CAUTION"
+if (w.humidity >= 85) level = "DANGER"
+
+// 💨 Wind
+if (w.wind >= 12) level = "CAUTION"
+if (w.wind >= 18) level = "DANGER"
+
+// 🌧 Weather
+if (["Rain", "Thunderstorm"].includes(w.condition)) {
+  level = "DANGER"
+}
+
 
     segments.push({
       points: route.slice(start, end),
       level,
-    })
+      weather: w,
+    });
   }
 
-  return segments
+  return segments;
 }

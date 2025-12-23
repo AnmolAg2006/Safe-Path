@@ -1,23 +1,24 @@
 export type WeatherPoint = {
+  lat: number
+  lon: number
   temp: number
   humidity: number
   wind: number
   condition: string
+  time: string   // 👈 forecast time
 }
 
-export async function getWeather(
+export async function getForecastWeather(
   lat: number,
-  lng: number
-): Promise<WeatherPoint> {
-  const res = await fetch("/api/weather", {
+  lon: number
+): Promise<WeatherPoint[]> {
+  const res = await fetch("/api/weather/forecast", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lat, lng }),
+    body: JSON.stringify({ lat, lon }),
   })
 
-  if (!res.ok) {
-    throw new Error("Weather fetch failed")
-  }
+  if (!res.ok) throw new Error("Forecast fetch failed")
 
   return res.json()
 }
