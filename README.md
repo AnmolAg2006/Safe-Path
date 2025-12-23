@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🛡️ SafePath — Intelligent Route Safety & Travel Assistance Platform
 
-## Getting Started
+SafePath is a full-stack web application that helps users plan **safe travel routes**
+by combining real-time routing, geospatial mapping, and risk analysis.
 
-First, run the development server:
+The platform visualizes routes on an interactive map, evaluates **route safety scores**,
+and is designed to progressively integrate **weather and disaster intelligence**.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Key Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- 🔐 Authentication & protected dashboard
+- 🗺️ Interactive route planning using OpenRouteService (ORS)
+- 🧠 Route safety scoring (SAFE / CAUTION / DANGER)
+- 🎨 Color-coded route segments on map
+- 📍 Auto-zoom map to route bounds
+- ⚙️ Modern Next.js App Router architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🧩 Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+**Frontend**
+- Next.js (App Router)
+- React
+- Tailwind CSS
+- Leaflet / React-Leaflet
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Backend**
+- Next.js API Routes
+- OpenRouteService API
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Tools**
+- TypeScript
+- ESLint
+- Git & GitHub
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📌 Project Status
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- ✅ Phase 1: Authentication & Dashboard
+- ✅ Phase 2: Route Planning & Safety Visualization
+- 🔄 Phase 3: Weather & Disaster Intelligence (in progress)
+
+---
+
+## 👨‍💻 Purpose
+
+This project was built as a **placement-ready full-stack application**
+to demonstrate real-world API integration, geospatial data handling,
+and clean scalable architecture.
+
+---
+
+## 🔮 Future Enhancements
+
+- 🌦️ Weather-based route risk analysis
+- 🚨 Disaster alerts along routes
+- 🤖 Floating AI chatbot assistant
+- 📊 Admin & analytics dashboard
