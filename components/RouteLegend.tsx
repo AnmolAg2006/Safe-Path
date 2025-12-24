@@ -1,6 +1,6 @@
 export default function RouteLegend() {
   return (
-    <div className="bg-white rounded-xl p-4 shadow space-y-3">
+    <div className="bg-white rounded-xl p-4 shadow space-y-3 border-1">
       <h3 className="font-semibold text-gray-800">
         Route Safety Legend
       </h3>

@@ -7,7 +7,7 @@ export type RouteSegment = {
   arrivalTime: string
   reasons: string[]
   placeName?: string
-
+  distanceKm:number
 }
 
 
@@ -56,10 +56,14 @@ export function buildRouteSegments(
     const points = route.slice(startIdx, endIdx)
     const w = weather[i]
 
-    // distance for this segment
     for (let j = 1; j < points.length; j++) {
       cumulativeKm += haversineKm(points[j - 1], points[j])
     }
+    let segmentKm = 0
+
+for (let j = 1; j < points.length; j++) {
+  segmentKm += haversineKm(points[j - 1], points[j])
+}
 
     const travelHours = cumulativeKm / AVG_SPEED_KMH
     const arrivalTime = new Date(
@@ -106,7 +110,9 @@ if (w.condition === "Thunderstorm") {
   weather: w,
   arrivalTime,
   reasons,
+  distanceKm: segmentKm, // ✅ STORE IT
 })
+
 
   }
 

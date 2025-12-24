@@ -27,8 +27,16 @@ export default function DashboardPage() {
   } | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
   const [focusPoint, setFocusPoint] = useState<[number, number] | null>(null);
+  const [routeSummary, setRouteSummary] = useState<{
+    distanceKm: number;
+    riskZones: number;
+    worstLevel: "SAFE" | "CAUTION" | "DANGER";
+  } | null>(null);
 
   async function onAnalyze(start: [number, number], end: [number, number]) {
+    setHighlightedIndex(null);
+    setFocusPoint(null);
+
     try {
       setLoading(true);
 
@@ -51,6 +59,24 @@ export default function DashboardPage() {
       setAlerts(forecastAlerts);
 
       const segs = buildRouteSegments(route, weather);
+      const totalDistanceKm = segs.reduce(
+        (sum, s) => sum + (s.distanceKm ?? 0),
+        0
+      );
+
+      const worstLevel = segs.some((s) => s.level === "DANGER")
+        ? "DANGER"
+        : segs.some((s) => s.level === "CAUTION")
+        ? "CAUTION"
+        : "SAFE";
+
+      const riskZones = segs.filter((s) => s.level !== "SAFE").length;
+      setRouteSummary({
+        distanceKm: totalDistanceKm,
+        riskZones,
+        worstLevel,
+      });
+
       // 🔹 Resolve place names ONLY for risky segments (max 6)
       const riskySegments = segs
         .map((s, idx) => ({ s, idx }))
@@ -78,6 +104,11 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }
+  function resetMapView() {
+    setFocusPoint(null);
+    setHighlightedIndex(null);
+  }
+
   function buildRiskGroups(segments: RouteSegment[]) {
     const groups: {
       startIndex: number;
@@ -126,18 +157,35 @@ export default function DashboardPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">
-          Welcome, Anmol Agarwal
-        </h1>
+        <h1 className="text-2xl font-bold ">Welcome, Anmol Agarwal</h1>
       </div>
 
       {/* Route + Map */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 ">
         {/* Left panel */}
-        <div className="space-y-4">
+        <div className="space-y-4 ">
+            {routeSummary && (
+              <div className="rounded-lg border bg-white p-3 text-sm shadow">
+                <div className="font-semibold text-gray-700 mb-2">
+                  Route Summary
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                  <div>Distance</div>
+                  <div>{routeSummary.distanceKm.toFixed(1)} km</div>
+
+                  <div>Risk zones</div>
+                  <div>{routeSummary.riskZones}</div>
+
+                  <div>Worst level</div>
+                  <div className="font-semibold">{routeSummary.worstLevel}</div>
+                </div>
+              </div>
+            )}
+
           <RoutePanel onAnalyze={onAnalyze} loading={loading} />
           {alerts.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2 ">
               {alerts.map((a, i) => (
                 <div
                   key={i}
@@ -199,8 +247,7 @@ export default function DashboardPage() {
                         const mid = s.points[Math.floor(s.points.length / 2)];
                         setFocusPoint(mid);
 
-                        // optional reset
-                        setTimeout(() => setFocusPoint(null), 1000);
+                        // setTimeout(() => setFocusPoint(null), 1000);
                       }}
                       className="cursor-pointer rounded p-2 hover:bg-gray-100"
                     >
@@ -243,7 +290,7 @@ export default function DashboardPage() {
 
           {/* Summary below map */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <RouteLegend />
+            {bestDeparture && <RouteLegend />}
 
             {bestDeparture && (
               <div className="rounded-lg p-3 border bg-white shadow text-sm">

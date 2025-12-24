@@ -23,7 +23,7 @@ export default function MapClient({
     <MapContainer
       center={[22.5, 78.9]}
       zoom={5}
-      className="h-[600px] w-full rounded-xl"
+      className="h-[630px] w-full rounded-xl"
     >
       <TileLayer
         attribution="&copy; OpenStreetMap"
