@@ -11,6 +11,7 @@ import { getForecastWeather, WeatherPoint } from "@/lib/weather";
 import { calculateSafety, SafetyResult } from "@/lib/safety";
 import { buildRouteSegments, RouteSegment } from "@/lib/routeSegments";
 import { getBestDepartureTime } from "@/lib/departureAdvisor";
+import { reverseGeocode } from "@/lib/reverseGeocode";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,8 @@ export default function DashboardPage() {
     level: "SAFE" | "CAUTION" | "DANGER";
     dangerPercent: number;
   } | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
+  const [focusPoint, setFocusPoint] = useState<[number, number] | null>(null);
 
   async function onAnalyze(start: [number, number], end: [number, number]) {
     try {
@@ -48,15 +51,25 @@ export default function DashboardPage() {
       setAlerts(forecastAlerts);
 
       const segs = buildRouteSegments(route, weather);
+      // 🔹 Resolve place names ONLY for risky segments (max 6)
+      const riskySegments = segs
+        .map((s, idx) => ({ s, idx }))
+        .filter(({ s }) => s.level !== "SAFE")
+        .slice(0, 6);
+
+      await Promise.all(
+        riskySegments.map(async ({ s }) => {
+          const mid = s.points[Math.floor(s.points.length / 2)];
+          s.placeName = await reverseGeocode(mid[0], mid[1]);
+        })
+      );
+
       setSegments(segs);
+
       /* ⭐ Phase 4: Best departure time */
       const { best } = getBestDepartureTime(weather, segs);
 
       setBestDeparture(best);
-
-      /* 4️⃣ Build route segments */
-
-      /* 5️⃣ Calculate overall safety */
       const safetyResult = calculateSafety(weather);
       setSafety(safetyResult);
     } catch (err) {
@@ -65,6 +78,49 @@ export default function DashboardPage() {
       setLoading(false);
     }
   }
+  function buildRiskGroups(segments: RouteSegment[]) {
+    const groups: {
+      startIndex: number;
+      endIndex: number;
+      level: "DANGER" | "CAUTION";
+      reasons: string[];
+      segments: RouteSegment[];
+    }[] = [];
+
+    let current: any = null;
+
+    segments.forEach((s, idx) => {
+      if (s.level === "SAFE") {
+        current = null;
+        return;
+      }
+
+      const key = s.level + "|" + s.reasons.join(",");
+
+      if (current && current.key === key && idx === current.endIndex + 1) {
+        current.endIndex = idx;
+        current.segments.push(s);
+      } else {
+        current = {
+          key,
+          startIndex: idx,
+          endIndex: idx,
+          level: s.level,
+          reasons: s.reasons,
+          segments: [s],
+        };
+        groups.push(current);
+      }
+    });
+
+    return groups;
+  }
+  const riskGroups = buildRiskGroups(segments).sort((a, b) => {
+    if (a.level !== b.level) {
+      return a.level === "DANGER" ? -1 : 1;
+    }
+    return b.segments.length - a.segments.length;
+  });
 
   return (
     <div className="p-6 space-y-6">
@@ -76,7 +132,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Route + Map */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left panel */}
         <div className="space-y-4">
           <RoutePanel onAnalyze={onAnalyze} loading={loading} />
@@ -124,41 +180,100 @@ export default function DashboardPage() {
               )}
             </div>
           )}
-
-          <RouteLegend />
-          {bestDeparture && (
-            <div className="rounded-lg p-3 border bg-white shadow text-sm">
-              <div className="text-gray-500">Best departure time</div>
-
-              <div className="flex items-center justify-between mt-1">
-                <span className="font-semibold text-lg">
-                  {bestDeparture.label}
-                </span>
-
-                <span
-                  className={`px-2 py-1 rounded text-xs font-bold ${
-                    bestDeparture.level === "SAFE"
-                      ? "bg-green-100 text-green-700"
-                      : bestDeparture.level === "CAUTION"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {bestDeparture.level}
-                </span>
+          {segments.length > 0 && (
+            <div className="rounded-lg border bg-white p-3 text-sm shadow max-h-64 overflow-y-auto">
+              <div className="font-semibold text-gray-700 mb-2">
+                ⚠️ Risk Breakdown
               </div>
 
-              <div className="text-xs text-gray-600 mt-1">
-                Safety score: {bestDeparture.score} · Dangerous segments:{" "}
-                {bestDeparture.dangerPercent}%
+              <div className="space-y-2">
+                {segments.map((s, idx) => {
+                  if (s.level === "SAFE" || s.reasons.length === 0) return null;
+
+                  return (
+                    <div
+                      key={idx}
+                      onMouseEnter={() => setHighlightedIndex(idx)}
+                      onMouseLeave={() => setHighlightedIndex(null)}
+                      onClick={() => {
+                        const mid = s.points[Math.floor(s.points.length / 2)];
+                        setFocusPoint(mid);
+
+                        // optional reset
+                        setTimeout(() => setFocusPoint(null), 1000);
+                      }}
+                      className="cursor-pointer rounded p-2 hover:bg-gray-100"
+                    >
+                      <div className="flex justify-between">
+                        <span className="font-medium">
+                          {s.placeName && s.placeName !== "Nearby area"
+                            ? s.placeName
+                            : "Along the route"}
+                        </span>
+
+                        <span
+                          className={`text-xs font-bold ${
+                            s.level === "DANGER"
+                              ? "text-red-600"
+                              : "text-yellow-600"
+                          }`}
+                        >
+                          {s.level}
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-gray-600 mt-1">
+                        {s.reasons.join(", ")}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
 
         {/* Map */}
-        <div className="lg:col-span-2">
-          <MapView segments={segments} />
+        <div className="lg:col-span-3 space-y-4">
+          <MapView
+            segments={segments}
+            highlightedIndex={highlightedIndex}
+            focusPoint={focusPoint}
+          />
+
+          {/* Summary below map */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <RouteLegend />
+
+            {bestDeparture && (
+              <div className="rounded-lg p-3 border bg-white shadow text-sm">
+                <div className="text-gray-500">Best departure time</div>
+
+                <div className="flex items-center justify-between mt-1">
+                  <span className="font-semibold text-lg">
+                    {bestDeparture.label}
+                  </span>
+
+                  <span
+                    className={`px-2 py-1 rounded text-xs font-bold ${
+                      bestDeparture.level === "SAFE"
+                        ? "bg-green-100 text-green-700"
+                        : bestDeparture.level === "CAUTION"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {bestDeparture.level}
+                  </span>
+                </div>
+
+                <div className="text-xs text-gray-600 mt-1">
+                  Safety score: {bestDeparture.score} · Dangerous segments:{" "}
+                  {bestDeparture.dangerPercent}%
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

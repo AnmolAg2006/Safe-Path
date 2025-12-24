@@ -5,7 +5,13 @@ export type RouteSegment = {
   level: "SAFE" | "CAUTION" | "DANGER"
   weather: WeatherPoint
   arrivalTime: string
+  reasons: string[]
+  placeName?: string
+
 }
+
+
+
 
 const AVG_SPEED_KMH = 50
 
@@ -59,31 +65,49 @@ export function buildRouteSegments(
     const arrivalTime = new Date(
       startTime + travelHours * 3600 * 1000
     ).toISOString()
+    const reasons: string[] = []
+let level: RouteSegment["level"] = "SAFE"
 
-    let level: RouteSegment["level"] = "SAFE"
+if (w.temp >= 45) {
+  reasons.push("Extreme heat")
+  level = "DANGER"
+} else if (w.temp >= 38) {
+  reasons.push("High temperature")
+  level = "CAUTION"
+}
 
-    if (
-      w.temp >= 45 ||
-      w.wind >= 25 ||
-      w.humidity >= 90 ||
-      w.condition === "Thunderstorm"
-    ) {
-      level = "DANGER"
-    } else if (
-      w.temp >= 38 ||
-      w.wind >= 15 ||
-      w.humidity >= 80 ||
-      ["Rain", "Snow"].includes(w.condition)
-    ) {
-      level = "CAUTION"
-    }
+if (w.wind >= 25) {
+  reasons.push("Strong winds")
+  level = "DANGER"
+} else if (w.wind >= 15) {
+  reasons.push("Moderate winds")
+  if (level === "SAFE") level = "CAUTION"
+}
+
+if (w.humidity >= 90) {
+  reasons.push("Very high humidity")
+  level = "DANGER"
+} else if (w.humidity >= 80) {
+  reasons.push("High humidity")
+  if (level === "SAFE") level = "CAUTION"
+}
+
+if (w.condition === "Thunderstorm") {
+  reasons.push("Thunderstorm activity")
+  level = "DANGER"
+} else if (["Rain", "Snow"].includes(w.condition)) {
+  reasons.push("Rainfall expected")
+  if (level === "SAFE") level = "CAUTION"
+}
 
     segments.push({
-      points,
-      level,
-      weather: w,
-      arrivalTime,
-    })
+  points,
+  level,
+  weather: w,
+  arrivalTime,
+  reasons,
+})
+
   }
 
   return segments
