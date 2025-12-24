@@ -32,7 +32,8 @@ export default function MapSection({ segments }: { segments: RouteSegment[] }) {
                 🌡 Temp: ${seg.weather.temp}°C<br/>
                 💧 Humidity: ${seg.weather.humidity}%<br/>
                 💨 Wind: ${seg.weather.wind} m/s<br/>
-                ⏱ ${seg.weather.time}
+                ⏱ ${new Date(seg.arrivalTime).toLocaleTimeString()}
+
               `
               e.target.bindPopup(popup).openPopup()
             },
