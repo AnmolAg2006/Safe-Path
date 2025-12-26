@@ -5,19 +5,25 @@ import "leaflet/dist/leaflet.css"
 import MapSection from "./MapSection"
 import FitBounds from "./FitBounds"
 import { RouteSegment } from "@/lib/routeSegments"
+import type { RiskCluster } from "@/lib/riskClustering"
 
 type Props = {
   segments: RouteSegment[]
   highlightedIndex: number | null
   focusPoint: [number, number] | null
+  riskClusters: RiskCluster[]   
+  manualFocus: boolean
+
 }
 
 export default function MapClient({
   segments,
   highlightedIndex,
   focusPoint,
+  riskClusters,
+  manualFocus
 }: Props) {
-  const points = segments.flatMap(s => s.points)
+  const points = segments.flatMap((s) => s.points)
 
   return (
     <MapContainer
@@ -34,9 +40,9 @@ export default function MapClient({
         segments={segments}
         highlightedIndex={highlightedIndex}
         focusPoint={focusPoint}
+        riskClusters={riskClusters}   // ✅ PASS THROUGH
       />
-
-      {!focusPoint && <FitBounds points={points} />}
+{!manualFocus && !focusPoint && <FitBounds points={points} />}
 
     </MapContainer>
   )

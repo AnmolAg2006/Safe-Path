@@ -1,10 +1,13 @@
 import dynamic from "next/dynamic"
 import { RouteSegment } from "@/lib/routeSegments"
+import type { RiskCluster } from "@/lib/riskClustering"
 
 type Props = {
   segments: RouteSegment[]
   highlightedIndex: number | null
   focusPoint: [number, number] | null
+  riskClusters: RiskCluster[]
+  manualFocus: boolean
 }
 
 const MapClient = dynamic(() => import("./MapClient"), {
@@ -18,12 +21,16 @@ export default function MapView({
   segments,
   highlightedIndex,
   focusPoint,
+  riskClusters,
+  manualFocus
 }: Props) {
   return (
     <MapClient
       segments={segments}
       highlightedIndex={highlightedIndex}
       focusPoint={focusPoint}
+      riskClusters={riskClusters}   // ✅ FIXED
+      manualFocus={manualFocus}
     />
   )
 }
