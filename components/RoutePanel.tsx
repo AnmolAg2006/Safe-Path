@@ -1,26 +1,48 @@
 "use client"
 import { useState } from "react"
 import { geocode } from "@/lib/geocode"
-
+import { useEffect } from "react"
 export default function RoutePanel({
   onAnalyze,
   loading,
+  initialFrom,
+  initialTo,
 }: {
-  onAnalyze: (s: [number, number], e: [number, number]) => Promise<void> | void
+  onAnalyze: (
+    s: [number, number],
+    e: [number, number],
+    from: string,
+    to: string
+  ) => Promise<void> | void
   loading?: boolean
-}) {
+  initialFrom?: string
+  initialTo?: string
+})
+ {
   const [startText, setStartText] = useState("")
   const [endText, setEndText] = useState("")
+useEffect(() => {
+  if (initialFrom !== undefined) setStartText(initialFrom)
+}, [initialFrom])
 
-  async function handleAnalyze() {
-    try {
-      const start = await geocode(startText)
-      const end = await geocode(endText)
-      await onAnalyze(start, end)
-    } catch {
-      alert("Location not found")
-    }
+useEffect(() => {
+  if (initialTo !== undefined) setEndText(initialTo)
+}, [initialTo])
+
+ async function handleAnalyze() {
+  if (!startText || !endText) return
+
+  try {
+    const start = await geocode(startText)
+    const end = await geocode(endText)
+
+    // ✅ PASS LABELS HERE
+    await onAnalyze(start, end, startText, endText)
+  } catch {
+    alert("Location not found")
   }
+}
+
 
   return (
     <div className="bg-white p-4 rounded-xl space-y-4 border-1 shadow-md">

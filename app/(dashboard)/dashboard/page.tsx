@@ -12,6 +12,15 @@ import { calculateSafety, SafetyResult } from "@/lib/safety";
 import { buildRouteSegments, RouteSegment } from "@/lib/routeSegments";
 import { getBestDepartureTime } from "@/lib/departureAdvisor";
 import { reverseGeocode } from "@/lib/reverseGeocode";
+import { getRouteExplanation } from "@/lib/routeExplanation";
+import type { RouteExplanation } from "@/lib/routeExplanation";
+import RouteExplanationCard from "@/components/RouteExplanationCard";
+import RouteResultCard from "@/components/RouteResultCard";
+import RouteExportActions from "@/components/RouteExportActions";
+import { saveRoute } from "@/lib/routeHistory"
+import { nanoid } from "nanoid"
+import RouteHistory from "@/components/RouteHistory";
+import { geocode } from "@/lib/geocode"
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
@@ -32,78 +41,139 @@ export default function DashboardPage() {
     riskZones: number;
     worstLevel: "SAFE" | "CAUTION" | "DANGER";
   } | null>(null);
+  const [explanation, setExplanation] = useState<RouteExplanation | null>(null);
+  const [fromLabel, setFromLabel] = useState("");
+  const [toLabel, setToLabel] = useState("");
+  async function analyzeFromHistory(from: string, to: string) {
+  // ✅ 1. Fill inputs FIRST (sync)
+  setFromLabel(from)
+  setToLabel(to)
 
-  async function onAnalyze(start: [number, number], end: [number, number]) {
-    setHighlightedIndex(null);
-    setFocusPoint(null);
+  try {
+    setLoading(true)
 
-    try {
-      setLoading(true);
+    // ✅ 2. Then resolve coordinates
+    const start = await geocode(from)
+    const end = await geocode(to)
 
-      /* 1️⃣ Get road route */
-      const { route } = await getRoute(start, end);
-
-      /* 2️⃣ Sample points */
-      const points = sampleRoute(route);
-
-      /* 3️⃣ ETA-aware forecast mapping */
-      const now = Math.floor(Date.now() / 1000); // seconds
-
-      const weatherNested = await Promise.all(
-        points.map(([lat, lon]) => getForecastWeather(lat, lon))
-      );
-
-      const weather: WeatherPoint[] = weatherNested.flat();
-
-      const forecastAlerts = generateForecastAlerts(weather);
-      setAlerts(forecastAlerts);
-
-      const segs = buildRouteSegments(route, weather);
-      const totalDistanceKm = segs.reduce(
-        (sum, s) => sum + (s.distanceKm ?? 0),
-        0
-      );
-
-      const worstLevel = segs.some((s) => s.level === "DANGER")
-        ? "DANGER"
-        : segs.some((s) => s.level === "CAUTION")
-        ? "CAUTION"
-        : "SAFE";
-
-      const riskZones = segs.filter((s) => s.level !== "SAFE").length;
-      setRouteSummary({
-        distanceKm: totalDistanceKm,
-        riskZones,
-        worstLevel,
-      });
-
-      // 🔹 Resolve place names ONLY for risky segments (max 6)
-      const riskySegments = segs
-        .map((s, idx) => ({ s, idx }))
-        .filter(({ s }) => s.level !== "SAFE")
-        .slice(0, 6);
-
-      await Promise.all(
-        riskySegments.map(async ({ s }) => {
-          const mid = s.points[Math.floor(s.points.length / 2)];
-          s.placeName = await reverseGeocode(mid[0], mid[1]);
-        })
-      );
-
-      setSegments(segs);
-
-      /* ⭐ Phase 4: Best departure time */
-      const { best } = getBestDepartureTime(weather, segs);
-
-      setBestDeparture(best);
-      const safetyResult = calculateSafety(weather);
-      setSafety(safetyResult);
-    } catch (err) {
-      alert("Route too long or unsupported. Try a shorter route.");
-    } finally {
-      setLoading(false);
-    }
+    // ✅ 3. Then analyze
+    await onAnalyze(start, end, from, to)
+  } catch {
+    alert("Unable to analyze saved route")
+  } finally {
+    setLoading(false)
   }
+}
+
+
+  async function onAnalyze(
+  start: [number, number],
+  end: [number, number],
+  from: string,
+  to: string
+) {
+  setHighlightedIndex(null)
+  setFocusPoint(null)
+
+  try {
+    setLoading(true)
+
+    /* 1️⃣ Get road route */
+    const { route } = await getRoute(start, end)
+
+    /* 2️⃣ Sample points */
+    const points = sampleRoute(route)
+
+    /* 3️⃣ Forecast mapping */
+    const weatherNested = await Promise.all(
+      points.map(([lat, lon]) => getForecastWeather(lat, lon))
+    )
+    const weather: WeatherPoint[] = weatherNested.flat()
+
+    setAlerts(generateForecastAlerts(weather))
+
+    const segs = buildRouteSegments(route, weather)
+
+    const totalDistanceKm = segs.reduce(
+      (sum, s) => sum + (s.distanceKm ?? 0),
+      0
+    )
+
+    const worstLevel = segs.some(s => s.level === "DANGER")
+      ? "DANGER"
+      : segs.some(s => s.level === "CAUTION")
+      ? "CAUTION"
+      : "SAFE"
+
+    const riskZones = segs.filter(s => s.level !== "SAFE").length
+
+    setRouteSummary({
+      distanceKm: totalDistanceKm,
+      riskZones,
+      worstLevel,
+    })
+
+    /* Phase 7.1 — Explanation */
+    const hour = new Date().getHours()
+
+    const exp = getRouteExplanation({
+      riskZones,
+      worstLevel:
+        worstLevel === "DANGER"
+          ? "high"
+          : worstLevel === "CAUTION"
+          ? "medium"
+          : "low",
+      wind: weather[0]?.wind ?? 0,
+      rain: weather.some(w =>
+        w.condition.toLowerCase().includes("rain")
+      ),
+      temp: weather[0]?.temp ?? 0,
+      hour,
+    })
+
+    setExplanation(exp)
+
+    /* ✅ SAVE ROUTE CORRECTLY */
+    saveRoute({
+      id: nanoid(),
+      from,
+      to,
+      distanceKm: totalDistanceKm,
+      riskZones,
+      explanation: exp,
+      timestamp: Date.now(),
+    })
+
+    setFromLabel(from)
+    setToLabel(to)
+
+    /* Resolve place names */
+    const riskySegments = segs
+      .filter(s => s.level !== "SAFE")
+      .slice(0, 6)
+
+    await Promise.all(
+      riskySegments.map(async s => {
+        const mid = s.points[Math.floor(s.points.length / 2)]
+        s.placeName = await reverseGeocode(mid[0], mid[1])
+      })
+    )
+
+    setSegments(segs)
+
+    const { best } = getBestDepartureTime(weather, segs)
+    setBestDeparture(best)
+    setSafety(calculateSafety(weather))
+
+  } catch {
+    alert("Route too long or unsupported. Try a shorter route.")
+  } finally {
+    setLoading(false)
+  }
+}
+
+
   function resetMapView() {
     setFocusPoint(null);
     setHighlightedIndex(null);
@@ -154,175 +224,180 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold ">Welcome, Anmol Agarwal</h1>
+  <div className="p-6 space-y-6">
+    {/* Header */}
+    <h1 className="text-2xl font-bold">Welcome, Anmol Agarwal</h1>
+
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {/* LEFT PANEL */}
+      <div className="space-y-4">
+        {/* Route Planner */}
+        <RoutePanel
+          loading={loading}
+          initialFrom={fromLabel}
+          initialTo={toLabel}
+          onAnalyze={(s, e, from, to) => {
+            setFromLabel(from)
+            setToLabel(to)
+            onAnalyze(s, e, from, to)
+          }}
+        />
+
+        {/* Route Result + Export (ONLY after analyze) */}
+        {explanation && routeSummary && (
+          <>
+            <RouteResultCard
+              explanation={explanation}
+              distanceKm={routeSummary.distanceKm}
+              riskZones={routeSummary.riskZones}
+            />
+
+            <RouteExportActions
+              from={fromLabel}
+              to={toLabel}
+              distanceKm={routeSummary.distanceKm}
+              riskZones={routeSummary.riskZones}
+              explanation={explanation}
+            />
+          </>
+        )}
+
+        {/* Recent Routes (always visible) */}
+        <RouteHistory onAnalyze={analyzeFromHistory} />
+
+        {/* Alerts */}
+        {alerts.length > 0 && (
+          <div className="space-y-2">
+            {alerts.map((a, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-lg text-sm font-medium ${
+                  a.severity === "SEVERE"
+                    ? "bg-red-600 text-white"
+                    : a.severity === "WARNING"
+                    ? "bg-yellow-500 text-black"
+                    : "bg-blue-500 text-white"
+                }`}
+              >
+                ⚠️ {a.message}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Risk Breakdown */}
+        {/* {segments.length > 0 && (
+          <div className="rounded-lg border bg-white p-3 text-sm shadow max-h-72 overflow-y-auto scrollbar-thin">
+            <div className="font-semibold text-gray-700 mb-2">
+              ⚠️ Risk Breakdown
+            </div>
+
+            <div className="space-y-2">
+              {segments.map((s, idx) => {
+                if (s.level === "SAFE" || s.reasons.length === 0) return null
+
+                return (
+                  <div
+                    key={idx}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    onMouseLeave={() => setHighlightedIndex(null)}
+                    onClick={() => {
+                      const mid = s.points[Math.floor(s.points.length / 2)]
+                      setFocusPoint(mid)
+                    }}
+                    className="cursor-pointer rounded p-2 hover:bg-gray-100"
+                  >
+                    <div className="flex justify-between">
+                      <span className="font-medium">
+                        {s.placeName && s.placeName !== "Nearby area"
+                          ? s.placeName
+                          : "Along the route"}
+                      </span>
+
+                      <span
+                        className={`text-xs font-bold ${
+                          s.level === "DANGER"
+                            ? "text-red-600"
+                            : "text-yellow-600"
+                        }`}
+                      >
+                        {s.level}
+                      </span>
+                    </div>
+
+                    <div className="text-xs text-gray-600 mt-1">
+                      {s.reasons.join(", ")}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )} */}
       </div>
 
-      {/* Route + Map */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 ">
-        {/* Left panel */}
-        <div className="space-y-4 ">
-            {routeSummary && (
-              <div className="rounded-lg border bg-white p-3 text-sm shadow">
-                <div className="font-semibold text-gray-700 mb-2">
-                  Route Summary
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                  <div>Distance</div>
-                  <div>{routeSummary.distanceKm.toFixed(1)} km</div>
-
-                  <div>Risk zones</div>
-                  <div>{routeSummary.riskZones}</div>
-
-                  <div>Worst level</div>
-                  <div className="font-semibold">{routeSummary.worstLevel}</div>
-                </div>
-              </div>
-            )}
-
-          <RoutePanel onAnalyze={onAnalyze} loading={loading} />
-          {alerts.length > 0 && (
-            <div className="space-y-2 ">
-              {alerts.map((a, i) => (
-                <div
-                  key={i}
-                  className={`p-3 rounded-lg text-sm font-medium ${
-                    a.severity === "SEVERE"
-                      ? "bg-red-600 text-white"
-                      : a.severity === "WARNING"
-                      ? "bg-yellow-500 text-black"
-                      : "bg-blue-500 text-white"
-                  }`}
-                >
-                  ⚠️ {a.message}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Safety Result (compact) */}
-          {safety && (
-            <div
-              className={`rounded-lg p-3 text-white shadow ${
-                safety.level === "SAFE"
-                  ? "bg-green-600"
-                  : safety.level === "CAUTION"
-                  ? "bg-yellow-500"
-                  : "bg-red-600"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm">Route Safety</span>
-                <span className="text-lg font-bold">{safety.score}/100</span>
-              </div>
-
-              <p className="text-sm font-semibold mt-1">{safety.level}</p>
-
-              {safety.reasons.length > 0 && (
-                <p className="text-xs mt-1 opacity-90">
-                  {safety.reasons.join(", ")}
-                </p>
-              )}
-            </div>
-          )}
-          {segments.length > 0 && (
-            <div className="rounded-lg border bg-white p-3 text-sm shadow max-h-64 overflow-y-auto">
-              <div className="font-semibold text-gray-700 mb-2">
-                ⚠️ Risk Breakdown
-              </div>
-
-              <div className="space-y-2">
-                {segments.map((s, idx) => {
-                  if (s.level === "SAFE" || s.reasons.length === 0) return null;
-
-                  return (
-                    <div
-                      key={idx}
-                      onMouseEnter={() => setHighlightedIndex(idx)}
-                      onMouseLeave={() => setHighlightedIndex(null)}
-                      onClick={() => {
-                        const mid = s.points[Math.floor(s.points.length / 2)];
-                        setFocusPoint(mid);
-
-                        // setTimeout(() => setFocusPoint(null), 1000);
-                      }}
-                      className="cursor-pointer rounded p-2 hover:bg-gray-100"
-                    >
-                      <div className="flex justify-between">
-                        <span className="font-medium">
-                          {s.placeName && s.placeName !== "Nearby area"
-                            ? s.placeName
-                            : "Along the route"}
-                        </span>
-
-                        <span
-                          className={`text-xs font-bold ${
-                            s.level === "DANGER"
-                              ? "text-red-600"
-                              : "text-yellow-600"
-                          }`}
-                        >
-                          {s.level}
-                        </span>
-                      </div>
-
-                      <div className="text-xs text-gray-600 mt-1">
-                        {s.reasons.join(", ")}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Map */}
-        <div className="lg:col-span-3 space-y-4">
+      {/* RIGHT PANEL */}
+      <div className="lg:col-span-3 space-y-4">
+        {/* Exportable Area (Map + compact result for image) */}
+        <div
+          id="route-export"
+          className="bg-white p-3 rounded-lg shadow"
+        >
           <MapView
             segments={segments}
             highlightedIndex={highlightedIndex}
             focusPoint={focusPoint}
           />
 
-          {/* Summary below map */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {bestDeparture && <RouteLegend />}
-
-            {bestDeparture && (
-              <div className="rounded-lg p-3 border bg-white shadow text-sm">
-                <div className="text-gray-500">Best departure time</div>
-
-                <div className="flex items-center justify-between mt-1">
-                  <span className="font-semibold text-lg">
-                    {bestDeparture.label}
-                  </span>
-
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-bold ${
-                      bestDeparture.level === "SAFE"
-                        ? "bg-green-100 text-green-700"
-                        : bestDeparture.level === "CAUTION"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {bestDeparture.level}
-                  </span>
-                </div>
-
-                <div className="text-xs text-gray-600 mt-1">
-                  Safety score: {bestDeparture.score} · Dangerous segments:{" "}
-                  {bestDeparture.dangerPercent}%
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Compact result INSIDE image export */}
+          {/* {explanation && routeSummary && (
+            <div className="mt-3">
+              <RouteResultCard
+                explanation={explanation}
+                distanceKm={routeSummary.distanceKm}
+                riskZones={routeSummary.riskZones}
+              />
+            </div>
+          )} */}
         </div>
+
+        {/* Supporting Info */}
+        {bestDeparture && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <RouteLegend />
+
+            <div className="rounded-lg p-3 border bg-white shadow text-sm">
+              <div className="text-gray-500">Best departure time</div>
+
+              <div className="flex items-center justify-between mt-1">
+                <span className="font-semibold text-lg">
+                  {bestDeparture.label}
+                </span>
+
+                <span
+                  className={`px-2 py-1 rounded text-xs font-bold ${
+                    bestDeparture.level === "SAFE"
+                      ? "bg-green-100 text-green-700"
+                      : bestDeparture.level === "CAUTION"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {bestDeparture.level}
+                </span>
+              </div>
+
+              <div className="text-xs text-gray-600 mt-1">
+                Safety score: {bestDeparture.score} · Dangerous segments:{" "}
+                {bestDeparture.dangerPercent}%
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  );
+  </div>
+)
+
+
 }
