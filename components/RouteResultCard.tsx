@@ -1,6 +1,8 @@
 "use client"
 
 import type { RouteExplanation } from "@/lib/routeExplanation"
+import { motion } from "framer-motion"
+import { fadeUp } from "@/lib/motion"
 
 type Props = {
   explanation: RouteExplanation | null
@@ -33,7 +35,14 @@ export default function RouteResultCard({
   const s = styles[explanation.level]
 
   return (
-    <div className={`border rounded-lg p-4 mb-3 bg-white ${s.border}`}>
+    <motion.div
+  variants={fadeUp}
+  initial="hidden"
+  animate="visible"
+  transition={{ duration: 0.25, ease: "easeOut" }}
+  className={`border rounded-lg p-4 mb-3 bg-white ${s.border}`}
+>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <span
@@ -68,6 +77,7 @@ export default function RouteResultCard({
           <li key={i}>{b}</li>
         ))}
       </ul>
-    </div>
+    </motion.div>
+
   )
 }

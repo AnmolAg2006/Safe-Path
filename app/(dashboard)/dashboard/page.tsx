@@ -21,6 +21,7 @@ import { saveRoute } from "@/lib/routeHistory"
 import { nanoid } from "nanoid"
 import RouteHistory from "@/components/RouteHistory";
 import { geocode } from "@/lib/geocode"
+import { motion } from "framer-motion";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
@@ -52,11 +53,9 @@ export default function DashboardPage() {
   try {
     setLoading(true)
 
-    // ✅ 2. Then resolve coordinates
     const start = await geocode(from)
     const end = await geocode(to)
 
-    // ✅ 3. Then analyze
     await onAnalyze(start, end, from, to)
   } catch {
     alert("Unable to analyze saved route")
@@ -246,12 +245,19 @@ export default function DashboardPage() {
         {/* Route Result + Export (ONLY after analyze) */}
         {explanation && routeSummary && (
           <>
+          <motion.div
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  transition={{ delay: 0.1 }}
+>
+
+
             <RouteResultCard
               explanation={explanation}
               distanceKm={routeSummary.distanceKm}
               riskZones={routeSummary.riskZones}
             />
-
+</motion.div>
             <RouteExportActions
               from={fromLabel}
               to={toLabel}
@@ -269,71 +275,26 @@ export default function DashboardPage() {
         {alerts.length > 0 && (
           <div className="space-y-2">
             {alerts.map((a, i) => (
-              <div
+                <motion.div
                 key={i}
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.2 }}
                 className={`p-3 rounded-lg text-sm font-medium ${
                   a.severity === "SEVERE"
-                    ? "bg-red-600 text-white"
-                    : a.severity === "WARNING"
-                    ? "bg-yellow-500 text-black"
-                    : "bg-blue-500 text-white"
+                  ? "bg-red-600 text-white"
+                  : a.severity === "WARNING"
+                  ? "bg-yellow-500 text-black"
+                  : "bg-blue-500 text-white"
                 }`}
-              >
+                >
                 ⚠️ {a.message}
-              </div>
+                </motion.div>
             ))}
           </div>
         )}
 
-        {/* Risk Breakdown */}
-        {/* {segments.length > 0 && (
-          <div className="rounded-lg border bg-white p-3 text-sm shadow max-h-72 overflow-y-auto scrollbar-thin">
-            <div className="font-semibold text-gray-700 mb-2">
-              ⚠️ Risk Breakdown
-            </div>
-
-            <div className="space-y-2">
-              {segments.map((s, idx) => {
-                if (s.level === "SAFE" || s.reasons.length === 0) return null
-
-                return (
-                  <div
-                    key={idx}
-                    onMouseEnter={() => setHighlightedIndex(idx)}
-                    onMouseLeave={() => setHighlightedIndex(null)}
-                    onClick={() => {
-                      const mid = s.points[Math.floor(s.points.length / 2)]
-                      setFocusPoint(mid)
-                    }}
-                    className="cursor-pointer rounded p-2 hover:bg-gray-100"
-                  >
-                    <div className="flex justify-between">
-                      <span className="font-medium">
-                        {s.placeName && s.placeName !== "Nearby area"
-                          ? s.placeName
-                          : "Along the route"}
-                      </span>
-
-                      <span
-                        className={`text-xs font-bold ${
-                          s.level === "DANGER"
-                            ? "text-red-600"
-                            : "text-yellow-600"
-                        }`}
-                      >
-                        {s.level}
-                      </span>
-                    </div>
-
-                    <div className="text-xs text-gray-600 mt-1">
-                      {s.reasons.join(", ")}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )} */}
+        
       </div>
 
       {/* RIGHT PANEL */}
@@ -349,16 +310,6 @@ export default function DashboardPage() {
             focusPoint={focusPoint}
           />
 
-          {/* Compact result INSIDE image export */}
-          {/* {explanation && routeSummary && (
-            <div className="mt-3">
-              <RouteResultCard
-                explanation={explanation}
-                distanceKm={routeSummary.distanceKm}
-                riskZones={routeSummary.riskZones}
-              />
-            </div>
-          )} */}
         </div>
 
         {/* Supporting Info */}

@@ -7,6 +7,8 @@ import {
   togglePin,
   SavedRoute,
 } from "@/lib/routeHistory";
+import { motion } from "framer-motion"
+
 
 export default function RouteHistory({
   onAnalyze,
@@ -46,7 +48,16 @@ export default function RouteHistory({
       {/* 👇 Scroll container */}
       <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 scrollbar-thin">
         {routes.map((r) => (
-          <div key={r.id} className="rounded border p-2 bg-gray-50">
+          <motion.div
+          key={r.id}
+  layout
+  initial={{ opacity: 0, y: 6 }}
+  animate={{ opacity: 1, y: 0 }}
+  exit={{ opacity: 0 }}
+  transition={{ duration: 0.2 }}
+  className="rounded border p-2 bg-gray-50"
+>
+
             <div className="font-medium">
               {r.from} → {r.to}
               {r.pinned && <span className="ml-1">📌</span>}
@@ -86,7 +97,7 @@ export default function RouteHistory({
                 ❌
               </button>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>

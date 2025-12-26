@@ -2,6 +2,8 @@
 
 import { buildTextSummary, buildExportJson } from "@/lib/routeExport"
 import type { RouteExplanation } from "@/lib/routeExplanation"
+import { motion } from "framer-motion"
+import { fadeUp } from "@/lib/motion"
 
 type Props = {
   from: string
@@ -66,7 +68,13 @@ export default function RouteExportActions({
   }
 
   return (
-    <div className="flex gap-2 mt-3">
+    <motion.div
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  transition={{ delay: 0.1 }}
+  className="flex gap-2 mt-3"
+>
+
       <button
         onClick={copySummary}
         className="flex-1 border rounded-md px-3 py-2 text-sm hover:bg-gray-50"
@@ -87,6 +95,6 @@ export default function RouteExportActions({
   🟢 Share WhatsApp
 </button>
 
-    </div>
+     </motion.div>
   )
 }
