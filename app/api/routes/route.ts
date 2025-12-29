@@ -25,16 +25,25 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       const text = await res.text()
-      console.error("ORS error:", text)
-      return NextResponse.json(
-        { error: "Route service failed" },
-        { status: 500 }
-      )
+      console.error("ORS error:", res.status, text)
+      try {
+        const errorData = JSON.parse(text)
+        return NextResponse.json(
+          { error: errorData.error?.message || "Route service failed" },
+          { status: 400 }
+        )
+      } catch {
+        return NextResponse.json(
+          { error: `Route service error: ${res.status}` },
+          { status: 400 }
+        )
+      }
     }
 
     const data = await res.json()
 
     if (!data.features || !data.features.length) {
+      console.error("ORS returned no features for route")
       return NextResponse.json(
         { error: "Route too long or unsupported" },
         { status: 400 }

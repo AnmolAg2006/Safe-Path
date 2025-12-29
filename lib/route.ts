@@ -8,7 +8,7 @@ export async function getRoute(
   start: [number, number],
   end: [number, number]
 ): Promise<RouteResult> {
-  const res = await fetch("/api/route", {
+  const res = await fetch("/api/routes", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

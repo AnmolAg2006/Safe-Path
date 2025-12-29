@@ -1,5 +1,7 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
+import { redirect } from "next/navigation";
 import { useState, useEffect } from "react";
 import RoutePanel from "@/components/RoutePanel";
 import MapView from "@/components/MapView";
@@ -25,9 +27,13 @@ import { motion } from "framer-motion";
 import { AIInsight, generateAIInsights } from "@/lib/aiInsights";
 import AIInsightCard from "@/components/AIInsightCard";
 import { RiskCluster, clusterRiskSegments } from "@/lib/riskClustering";
+import { SignOutButton } from "@clerk/nextjs"
 
 export default function DashboardPage() {
-  const [manualFocus, setManualFocus] = useState(false)
+  const { user, isLoaded } = useUser();
+
+  // Declare all hooks at the top level
+  const [manualFocus, setManualFocus] = useState(false);
   const [loading, setLoading] = useState(false);
   const [segments, setSegments] = useState<RouteSegment[]>([]);
   const [safety, setSafety] = useState<SafetyResult | null>(null);
@@ -54,6 +60,22 @@ export default function DashboardPage() {
   const [focusedCluster, setFocusedCluster] = useState<[number, number] | null>(
     null
   );
+
+  // Show loading state
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto mb-3" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    redirect("/sign-in");
+  }
 
   async function analyzeFromHistory(from: string, to: string) {
     // ✅ 1. Fill inputs FIRST (sync)
@@ -153,13 +175,11 @@ export default function DashboardPage() {
 
       /* ✅ SAVE ROUTE CORRECTLY */
       saveRoute({
-        id: nanoid(),
         from,
         to,
         distanceKm: totalDistanceKm,
         riskZones,
         explanation: exp,
-        timestamp: Date.now(),
       });
 
       setFromLabel(from);
@@ -236,7 +256,12 @@ export default function DashboardPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <h1 className="text-2xl font-bold">Welcome, Anmol Agarwal</h1>
+      <h1 className="text-2xl font-bold">
+        Welcome, {user.firstName  || user.emailAddresses[0]?.emailAddress}
+      <SignOutButton >
+  <button className="ml-5  text-sm underline">Logout</button>
+</SignOutButton>
+      </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* LEFT PANEL */}
@@ -293,28 +318,7 @@ export default function DashboardPage() {
           {/* Recent Routes (always visible) */}
           <RouteHistory onAnalyze={analyzeFromHistory} />
 
-          {/* Alerts */}
-          {/* {alerts.length > 0 && (
-            <div className="space-y-2">
-              {alerts.map((a, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`p-3 rounded-lg text-sm font-medium ${
-                    a.severity === "SEVERE"
-                      ? "bg-red-600 text-white"
-                      : a.severity === "WARNING"
-                      ? "bg-yellow-500 text-black"
-                      : "bg-blue-500 text-white"
-                  }`}
-                >
-                  ⚠️ {a.message}
-                </motion.div>
-              ))}
-            </div>
-          )} */}
+          
         </div>
 
         {/* RIGHT PANEL */}

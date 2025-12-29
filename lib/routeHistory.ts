@@ -1,69 +1,101 @@
 import type { RouteExplanation } from "./routeExplanation"
 
 export type SavedRoute = {
-  id: string
+  _id: string              // MongoDB id
   from: string
   to: string
   distanceKm: number
   riskZones: number
   explanation: RouteExplanation
-  timestamp: number
-  pinned?: boolean   // ✅ NEW
+  createdAt: string        // ISO string from MongoDB
+  pinned?: boolean
 }
 
+/* ---------------- SAVE ROUTE ---------------- */
 
-const KEY = "safepath-history"
-const MAX = 5
-
-export function saveRoute(route: SavedRoute) {
-  const existing: SavedRoute[] =
-    JSON.parse(localStorage.getItem(KEY) || "[]")
-
-  // remove duplicate (same from → to)
-  const filtered = existing.filter(
-    r => !(r.from === route.from && r.to === route.to)
-  )
-
-  const updated = [route, ...filtered].slice(0, MAX)
-  localStorage.setItem(KEY, JSON.stringify(updated))
+export async function saveRoute(route: {
+  from: string
+  to: string
+  distanceKm: number
+  riskZones: number
+  explanation: RouteExplanation
+}) {
+  try {
+    await fetch("/api/routes/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        origin: route.from,
+        destination: route.to,
+        distanceKm: route.distanceKm,
+        riskZones: route.riskZones,
+        explanation: route.explanation,
+      }),
+    })
+  } catch (error) {
+    console.error("Failed to save route:", error)
+  }
 }
 
+/* ---------------- FETCH ROUTES ---------------- */
 
-export function getSavedRoutes(): SavedRoute[] {
-  return JSON.parse(localStorage.getItem(KEY) || "[]")
+export async function getRecentRoutes(): Promise<SavedRoute[]> {
+  try {
+    const res = await fetch("/api/routes/list", {
+      cache: "no-store",
+    })
+
+    if (!res.ok) {
+      console.error("Failed to fetch routes:", res.status)
+      return []
+    }
+
+    return await res.json()
+  } catch (error) {
+    console.error("Failed to load routes:", error)
+    return []
+  }
 }
-export function deleteRoute(id: string) {
-  const routes: SavedRoute[] =
-    JSON.parse(localStorage.getItem(KEY) || "[]")
 
-  localStorage.setItem(
-    KEY,
-    JSON.stringify(routes.filter(r => r.id !== id))
-  )
+export async function getSavedRoutes(): Promise<SavedRoute[]> {
+  return getRecentRoutes()
 }
 
-export function togglePin(id: string) {
-  const routes: SavedRoute[] =
-    JSON.parse(localStorage.getItem(KEY) || "[]")
+/* ---------------- DELETE ROUTE ---------------- */
+/* (Only works if you add DELETE API later) */
 
-  const updated = routes.map(r =>
-    r.id === id ? { ...r, pinned: !r.pinned } : r
-  )
-
-  // pinned routes on top
-  updated.sort((a, b) =>
-    a.pinned === b.pinned ? b.timestamp - a.timestamp : a.pinned ? -1 : 1
-  )
-
-  localStorage.setItem(KEY, JSON.stringify(updated))
+export async function deleteRoute(id: string) {
+  try {
+    await fetch(`/api/routes/${id}`, {
+      method: "DELETE",
+    })
+  } catch (error) {
+    console.error("Failed to delete route:", error)
+  }
 }
-export function getSortedRoutes(): SavedRoute[] {
-  const routes: SavedRoute[] =
-    JSON.parse(localStorage.getItem(KEY) || "[]")
+
+/* ---------------- PIN ROUTE ---------------- */
+/* (Optional future feature) */
+
+export async function togglePin(id: string) {
+  try {
+    await fetch(`/api/routes/${id}/pin`, {
+      method: "PATCH",
+    })
+  } catch (error) {
+    console.error("Failed to toggle pin:", error)
+  }
+}
+
+/* ---------------- SORT ROUTES ---------------- */
+
+export async function getSortedRoutes(): Promise<SavedRoute[]> {
+  const routes = await getRecentRoutes()
 
   return routes.sort((a, b) =>
     a.pinned === b.pinned
-      ? b.timestamp - a.timestamp
+      ? new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime()
       : a.pinned
       ? -1
       : 1

@@ -17,8 +17,9 @@ export default function RouteHistory({
 }) {
   const [routes, setRoutes] = useState<SavedRoute[]>([]);
 
-  const refresh = () => {
-    setRoutes(getSortedRoutes());
+  const refresh = async () => {
+    const sortedRoutes = await getSortedRoutes();
+    setRoutes(sortedRoutes);
   };
 
   // ✅ Load on mount
@@ -49,7 +50,7 @@ export default function RouteHistory({
       <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 scrollbar-thin">
         {routes.map((r) => (
           <motion.div
-          key={r.id}
+          key={r._id}
   layout
   initial={{ opacity: 0, y: 6 }}
   animate={{ opacity: 1, y: 0 }}
@@ -77,7 +78,7 @@ export default function RouteHistory({
 
               <button
                 onClick={() => {
-                  togglePin(r.id);
+                  togglePin(r._id);
                   refresh();
                 }}
                 className="border rounded px-2 py-1 text-xs hover:bg-white"
@@ -88,7 +89,7 @@ export default function RouteHistory({
 
               <button
                 onClick={() => {
-                  deleteRoute(r.id);
+                  deleteRoute(r._id);
                   refresh();
                 }}
                 className="border rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
