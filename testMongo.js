@@ -1,14 +1,5 @@
-const { MongoClient } = require("mongodb")
+import mongoose from "mongoose"
 
-const uri =
-  "mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/safepath?retryWrites=true&w=majority"
-
-
-async function test() {
-  const client = new MongoClient(uri)
-  await client.connect()
-  console.log("MongoDB connected")
-  await client.close()
-}
-
-test()
+mongoose.connect(process.env.MONGODB_URI!)
+  .then(() => console.log("CONNECTED"))
+  .catch(err => console.error(err))

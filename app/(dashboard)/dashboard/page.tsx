@@ -27,7 +27,7 @@ import { motion } from "framer-motion";
 import { AIInsight, generateAIInsights } from "@/lib/aiInsights";
 import AIInsightCard from "@/components/AIInsightCard";
 import { RiskCluster, clusterRiskSegments } from "@/lib/riskClustering";
-import { SignOutButton } from "@clerk/nextjs"
+import { SignOutButton } from "@clerk/nextjs";
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
@@ -57,6 +57,8 @@ export default function DashboardPage() {
   const [toLabel, setToLabel] = useState("");
   const [aiInsights, setAIInsights] = useState<AIInsight[]>([]);
   const [riskClusters, setRiskClusters] = useState<RiskCluster[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const [focusedCluster, setFocusedCluster] = useState<[number, number] | null>(
     null
   );
@@ -72,7 +74,7 @@ export default function DashboardPage() {
       </div>
     );
   }
-  
+
   if (!user) {
     redirect("/sign-in");
   }
@@ -97,117 +99,155 @@ export default function DashboardPage() {
   }
 
   async function onAnalyze(
-    start: [number, number],
-    end: [number, number],
-    from: string,
-    to: string
-  ) {
-    setHighlightedIndex(null);
-    setFocusPoint(null);
+  start: [number, number],
+  end: [number, number],
+  from: string,
+  to: string
+) {
+  setHighlightedIndex(null)
+  setFocusPoint(null)
 
-    try {
-      setLoading(true);
+  let savePayload: any = null
 
-      /* 1️⃣ Get road route */
-      const { route } = await getRoute(start, end);
+  try {
+    setLoading(true)
 
-      /* 2️⃣ Sample points */
-      const points = sampleRoute(route);
+    /* 1️⃣ Get road route */
+    const { route } = await getRoute(start, end)
 
-      /* 3️⃣ Forecast mapping */
-      const weatherNested = await Promise.all(
-        points.map(([lat, lon]) => getForecastWeather(lat, lon))
-      );
-      const weather: WeatherPoint[] = weatherNested.flat();
+    /* 2️⃣ Sample points */
+    const points = sampleRoute(route)
 
-      setAlerts(generateForecastAlerts(weather));
+    /* 3️⃣ Forecast mapping */
+    const weatherNested = await Promise.all(
+      points.map(([lat, lon]) => getForecastWeather(lat, lon))
+    )
+    const weather: WeatherPoint[] = weatherNested.flat()
 
-      const segs = buildRouteSegments(route, weather);
+    setAlerts(generateForecastAlerts(weather))
 
-      const totalDistanceKm = segs.reduce(
-        (sum, s) => sum + (s.distanceKm ?? 0),
-        0
-      );
+    const segs = buildRouteSegments(route, weather)
 
-      const worstLevel = segs.some((s) => s.level === "DANGER")
-        ? "DANGER"
-        : segs.some((s) => s.level === "CAUTION")
-        ? "CAUTION"
-        : "SAFE";
+    const totalDistanceKm = segs.reduce(
+      (sum, s) => sum + (s.distanceKm ?? 0),
+      0
+    )
 
-      const riskZones = segs.filter((s) => s.level !== "SAFE").length;
-      const insights = generateAIInsights({
-        riskZones,
-        worstLevel,
-        weatherCount: weather.length,
-        rain: weather.some((w) => w.condition.toLowerCase().includes("rain")),
-        wind: weather[0]?.wind ?? 0,
-        hour: new Date().getHours(),
-        clusters: riskClusters, // ✅ PASS CLUSTERS
-      });
+    const worstLevel = segs.some((s) => s.level === "DANGER")
+      ? "DANGER"
+      : segs.some((s) => s.level === "CAUTION")
+      ? "CAUTION"
+      : "SAFE"
 
-      setAIInsights(insights);
+    const riskZones = segs.filter((s) => s.level !== "SAFE").length
 
-      setRouteSummary({
-        distanceKm: totalDistanceKm,
-        riskZones,
-        worstLevel,
-      });
+    const insights = generateAIInsights({
+      riskZones,
+      worstLevel,
+      weatherCount: weather.length,
+      rain: weather.some((w) => w.condition.toLowerCase().includes("rain")),
+      wind: weather[0]?.wind ?? 0,
+      hour: new Date().getHours(),
+      clusters: riskClusters,
+    })
 
-      /* Phase 7.1 — Explanation */
-      const hour = new Date().getHours();
+    setAIInsights(insights)
 
-      const exp = getRouteExplanation({
-        riskZones,
-        worstLevel:
-          worstLevel === "DANGER"
-            ? "high"
-            : worstLevel === "CAUTION"
-            ? "medium"
-            : "low",
-        wind: weather[0]?.wind ?? 0,
-        rain: weather.some((w) => w.condition.toLowerCase().includes("rain")),
-        temp: weather[0]?.temp ?? 0,
-        hour,
-      });
+    setRouteSummary({
+      distanceKm: totalDistanceKm,
+      riskZones,
+      worstLevel,
+    })
 
-      setExplanation(exp);
+    /* Phase 7.1 — Explanation */
+    const hour = new Date().getHours()
 
-      /* ✅ SAVE ROUTE CORRECTLY */
-      saveRoute({
-        from,
-        to,
-        distanceKm: totalDistanceKm,
-        riskZones,
-        explanation: exp,
-      });
+    const exp = getRouteExplanation({
+      riskZones,
+      worstLevel:
+        worstLevel === "DANGER"
+          ? "high"
+          : worstLevel === "CAUTION"
+          ? "medium"
+          : "low",
+      wind: weather[0]?.wind ?? 0,
+      rain: weather.some((w) => w.condition.toLowerCase().includes("rain")),
+      temp: weather[0]?.temp ?? 0,
+      hour,
+    })
 
-      setFromLabel(from);
-      setToLabel(to);
+    setExplanation(exp)
 
-      /* Resolve place names */
-      const riskySegments = segs.filter((s) => s.level !== "SAFE").slice(0, 6);
-
-      await Promise.all(
-        riskySegments.map(async (s) => {
-          const mid = s.points[Math.floor(s.points.length / 2)];
-          s.placeName = await reverseGeocode(mid[0], mid[1]);
-        })
-      );
-
-      setSegments(segs);
-      const clusters = clusterRiskSegments(segs);
-      setRiskClusters(clusters);
-
-      const { best } = getBestDepartureTime(weather, segs);
-      setBestDeparture(best);
-      setSafety(calculateSafety(weather));
-    } catch {
-      alert("Route too long or unsupported. Try a shorter route.");
-    } finally {
-      setLoading(false);
+    /* ✅ PREPARE SAVE PAYLOAD (SUCCESS CASE) */
+    savePayload = {
+      from,
+      to,
+      distanceKm: totalDistanceKm,
+      riskZones,
+      explanation: exp,
     }
+
+    /* ✅ OPTIMISTIC UI */
+    ;(window as any).addOptimisticRoute?.({
+      _id: crypto.randomUUID(),
+      from,
+      to,
+      distanceKm: totalDistanceKm,
+      riskZones,
+      explanation: exp,
+      createdAt: new Date().toISOString(),
+      pinned: false,
+    })
+
+    setFromLabel(from)
+    setToLabel(to)
+
+    /* Resolve place names */
+    const riskySegments = segs.filter((s) => s.level !== "SAFE").slice(0, 6)
+
+    await Promise.all(
+      riskySegments.map(async (s) => {
+        const mid = s.points[Math.floor(s.points.length / 2)]
+        s.placeName = await reverseGeocode(mid[0], mid[1])
+      })
+    )
+
+    setSegments(segs)
+    const clusters = clusterRiskSegments(segs)
+    setRiskClusters(clusters)
+
+    const { best } = getBestDepartureTime(weather, segs)
+    setBestDeparture(best)
+    setSafety(calculateSafety(weather))
+  } catch (err) {
+    console.error("Analyze failed:", err)
+
+    alert("Route could not be fully analyzed. Saving basic route info.")
+
+    /* ✅ PREPARE SAVE PAYLOAD (FAILURE CASE) */
+    savePayload = {
+      from,
+      to,
+      distanceKm: 0,
+      riskZones: 0,
+      explanation: {
+        level: "unknown",
+        score: 0,
+        summary: "Route could not be analyzed",
+        bullets: ["Routing service failed"],
+      },
+    }
+  } finally {
+    setLoading(false)
   }
+
+  /* ✅ ALWAYS SAVE ROUTE (THIS WAS MISSING EARLIER) */
+  if (savePayload) {
+    await saveRoute(savePayload)
+    setRefreshKey((k) => k + 1)
+  }
+}
+
 
   function buildRiskGroups(segments: RouteSegment[]) {
     const groups: {
@@ -257,10 +297,10 @@ export default function DashboardPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <h1 className="text-2xl font-bold">
-        Welcome, {user.firstName  || user.emailAddresses[0]?.emailAddress}
-      <SignOutButton >
-  <button className="ml-5  text-sm underline">Logout</button>
-</SignOutButton>
+        Welcome, {user.firstName || user.emailAddresses[0]?.emailAddress}
+        <SignOutButton>
+          <button className="ml-5  text-sm underline">Logout</button>
+        </SignOutButton>
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -294,15 +334,14 @@ export default function DashboardPage() {
               </motion.div>
               {aiInsights.length > 0 && (
                 <AIInsightCard
-  insights={aiInsights}
-  clusters={riskClusters}
-  segments={segments}
-  onFocusCluster={(point) => {
-    setManualFocus(true)   // 🔑 prevents FitBounds override
-    setFocusPoint(point)   // 🔑 triggers map.flyTo
-  }}
-/>
-
+                  insights={aiInsights}
+                  clusters={riskClusters}
+                  segments={segments}
+                  onFocusCluster={(point) => {
+                    setManualFocus(true); // 🔑 prevents FitBounds override
+                    setFocusPoint(point); // 🔑 triggers map.flyTo
+                  }}
+                />
               )}
 
               <RouteExportActions
@@ -316,9 +355,10 @@ export default function DashboardPage() {
           )}
 
           {/* Recent Routes (always visible) */}
-          <RouteHistory onAnalyze={analyzeFromHistory} />
-
-          
+          <RouteHistory
+            onAnalyze={analyzeFromHistory}
+            refreshKey={refreshKey}
+          />
         </div>
 
         {/* RIGHT PANEL */}

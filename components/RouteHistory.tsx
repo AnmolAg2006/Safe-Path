@@ -1,20 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import {
   getSortedRoutes,
   deleteRoute,
   togglePin,
   SavedRoute,
 } from "@/lib/routeHistory";
-import { motion } from "framer-motion"
-
+import { motion } from "framer-motion";
 
 export default function RouteHistory({
   onAnalyze,
+  refreshKey,
 }: {
-  onAnalyze: (from: string, to: string) => void;
+  onAnalyze: (from: string, to: string) => void
+  refreshKey: number
 }) {
+
   const [routes, setRoutes] = useState<SavedRoute[]>([]);
 
   const refresh = async () => {
@@ -27,12 +30,9 @@ export default function RouteHistory({
     refresh();
   }, []);
 
-  // ✅ Listen to storage updates (CRITICAL)
-  useEffect(() => {
-    const handler = () => refresh();
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
-  }, []);
+useEffect(() => {
+  refresh()
+}, [refreshKey])
 
   if (routes.length === 0) {
     return (
@@ -41,6 +41,18 @@ export default function RouteHistory({
       </div>
     );
   }
+  const addOptimisticRoute = (route: SavedRoute) => {
+  setRoutes((prev) => {
+    // ❌ remove any existing same from→to
+    const filtered = prev.filter(
+      (r) => !(r.from === route.from && r.to === route.to)
+    )
+    return [route, ...filtered]
+  })
+}
+
+;(window as any).addOptimisticRoute = addOptimisticRoute
+
 
   return (
     <div className="rounded-lg border bg-white p-3 shadow text-sm">
@@ -50,15 +62,14 @@ export default function RouteHistory({
       <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 scrollbar-thin">
         {routes.map((r) => (
           <motion.div
-          key={r._id}
-  layout
-  initial={{ opacity: 0, y: 6 }}
-  animate={{ opacity: 1, y: 0 }}
-  exit={{ opacity: 0 }}
-  transition={{ duration: 0.2 }}
-  className="rounded border p-2 bg-gray-50"
->
-
+            key={r._id}
+            layout
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="rounded border p-2 bg-gray-50"
+          >
             <div className="font-medium">
               {r.from} → {r.to}
               {r.pinned && <span className="ml-1">📌</span>}
@@ -77,23 +88,31 @@ export default function RouteHistory({
               </button>
 
               <button
-                onClick={() => {
-                  togglePin(r._id);
-                  refresh();
+                onClick={async () => {
+                  try {
+                    await togglePin(r._id);
+                    await refresh();
+                    toast.success(r.pinned ? "Route unpinned" : "Route pinned");
+                  } catch {
+                    toast.error("Failed to update pin");
+                  }
                 }}
                 className="border rounded px-2 py-1 text-xs hover:bg-white"
-                title={r.pinned ? "Unpin route" : "Pin route"}
               >
                 {r.pinned ? "Un📌" : "📌"}
               </button>
 
               <button
-                onClick={() => {
-                  deleteRoute(r._id);
-                  refresh();
+                onClick={async () => {
+                  try {
+                    await deleteRoute(r._id);
+                    await refresh();
+                    toast.success("Route deleted");
+                  } catch {
+                    toast.error("Failed to delete route");
+                  }
                 }}
                 className="border rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                title="Delete route"
               >
                 ❌
               </button>
