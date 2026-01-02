@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -99,155 +99,154 @@ export default function DashboardPage() {
   }
 
   async function onAnalyze(
-  start: [number, number],
-  end: [number, number],
-  from: string,
-  to: string
-) {
-  setHighlightedIndex(null)
-  setFocusPoint(null)
+    start: [number, number],
+    end: [number, number],
+    from: string,
+    to: string
+  ) {
+    setHighlightedIndex(null);
+    setFocusPoint(null);
 
-  let savePayload: any = null
+    let savePayload: any = null;
 
-  try {
-    setLoading(true)
+    try {
+      setLoading(true);
 
-    /* 1️⃣ Get road route */
-    const { route } = await getRoute(start, end)
+      /* 1️⃣ Get road route */
+      const { route } = await getRoute(start, end);
 
-    /* 2️⃣ Sample points */
-    const points = sampleRoute(route)
+      /* 2️⃣ Sample points */
+      const points = sampleRoute(route);
 
-    /* 3️⃣ Forecast mapping */
-    const weatherNested = await Promise.all(
-      points.map(([lat, lon]) => getForecastWeather(lat, lon))
-    )
-    const weather: WeatherPoint[] = weatherNested.flat()
+      /* 3️⃣ Forecast mapping */
+      const weatherNested = await Promise.all(
+        points.map(([lat, lon]) => getForecastWeather(lat, lon))
+      );
+      const weather: WeatherPoint[] = weatherNested.flat();
 
-    setAlerts(generateForecastAlerts(weather))
+      setAlerts(generateForecastAlerts(weather));
 
-    const segs = buildRouteSegments(route, weather)
+      const segs = buildRouteSegments(route, weather);
 
-    const totalDistanceKm = segs.reduce(
-      (sum, s) => sum + (s.distanceKm ?? 0),
-      0
-    )
+      const totalDistanceKm = segs.reduce(
+        (sum, s) => sum + (s.distanceKm ?? 0),
+        0
+      );
 
-    const worstLevel = segs.some((s) => s.level === "DANGER")
-      ? "DANGER"
-      : segs.some((s) => s.level === "CAUTION")
-      ? "CAUTION"
-      : "SAFE"
+      const worstLevel = segs.some((s) => s.level === "DANGER")
+        ? "DANGER"
+        : segs.some((s) => s.level === "CAUTION")
+        ? "CAUTION"
+        : "SAFE";
 
-    const riskZones = segs.filter((s) => s.level !== "SAFE").length
+      const riskZones = segs.filter((s) => s.level !== "SAFE").length;
 
-    const insights = generateAIInsights({
-      riskZones,
-      worstLevel,
-      weatherCount: weather.length,
-      rain: weather.some((w) => w.condition.toLowerCase().includes("rain")),
-      wind: weather[0]?.wind ?? 0,
-      hour: new Date().getHours(),
-      clusters: riskClusters,
-    })
+      const insights = generateAIInsights({
+        riskZones,
+        worstLevel,
+        weatherCount: weather.length,
+        rain: weather.some((w) => w.condition.toLowerCase().includes("rain")),
+        wind: weather[0]?.wind ?? 0,
+        hour: new Date().getHours(),
+        clusters: riskClusters,
+      });
 
-    setAIInsights(insights)
+      setAIInsights(insights);
 
-    setRouteSummary({
-      distanceKm: totalDistanceKm,
-      riskZones,
-      worstLevel,
-    })
+      setRouteSummary({
+        distanceKm: totalDistanceKm,
+        riskZones,
+        worstLevel,
+      });
 
-    /* Phase 7.1 — Explanation */
-    const hour = new Date().getHours()
+      /* Phase 7.1 — Explanation */
+      const hour = new Date().getHours();
 
-    const exp = getRouteExplanation({
-      riskZones,
-      worstLevel:
-        worstLevel === "DANGER"
-          ? "high"
-          : worstLevel === "CAUTION"
-          ? "medium"
-          : "low",
-      wind: weather[0]?.wind ?? 0,
-      rain: weather.some((w) => w.condition.toLowerCase().includes("rain")),
-      temp: weather[0]?.temp ?? 0,
-      hour,
-    })
+      const exp = getRouteExplanation({
+        riskZones,
+        worstLevel:
+          worstLevel === "DANGER"
+            ? "high"
+            : worstLevel === "CAUTION"
+            ? "medium"
+            : "low",
+        wind: weather[0]?.wind ?? 0,
+        rain: weather.some((w) => w.condition.toLowerCase().includes("rain")),
+        temp: weather[0]?.temp ?? 0,
+        hour,
+      });
 
-    setExplanation(exp)
+      setExplanation(exp);
 
-    /* ✅ PREPARE SAVE PAYLOAD (SUCCESS CASE) */
-    savePayload = {
-      from,
-      to,
-      distanceKm: totalDistanceKm,
-      riskZones,
-      explanation: exp,
+      /* ✅ PREPARE SAVE PAYLOAD (SUCCESS CASE) */
+      savePayload = {
+        from,
+        to,
+        distanceKm: totalDistanceKm,
+        riskZones,
+        explanation: exp,
+      };
+
+      /* ✅ OPTIMISTIC UI */
+      (window as any).addOptimisticRoute?.({
+        _id: crypto.randomUUID(),
+        from,
+        to,
+        distanceKm: totalDistanceKm,
+        riskZones,
+        explanation: exp,
+        createdAt: new Date().toISOString(),
+        pinned: false,
+      });
+
+      setFromLabel(from);
+      setToLabel(to);
+
+      /* Resolve place names */
+      const riskySegments = segs.filter((s) => s.level !== "SAFE").slice(0, 6);
+
+      await Promise.all(
+        riskySegments.map(async (s) => {
+          const mid = s.points[Math.floor(s.points.length / 2)];
+          s.placeName = await reverseGeocode(mid[0], mid[1]);
+        })
+      );
+
+      setSegments(segs);
+      const clusters = clusterRiskSegments(segs);
+      setRiskClusters(clusters);
+
+      const { best } = getBestDepartureTime(weather, segs);
+      setBestDeparture(best);
+      setSafety(calculateSafety(weather));
+    } catch (err) {
+      console.error("Analyze failed:", err);
+
+      alert("Route could not be fully analyzed. Saving basic route info.");
+
+      /* ✅ PREPARE SAVE PAYLOAD (FAILURE CASE) */
+      savePayload = {
+        from,
+        to,
+        distanceKm: 0,
+        riskZones: 0,
+        explanation: {
+          level: "unknown",
+          score: 0,
+          summary: "Route could not be analyzed",
+          bullets: ["Routing service failed"],
+        },
+      };
+    } finally {
+      setLoading(false);
     }
 
-    /* ✅ OPTIMISTIC UI */
-    ;(window as any).addOptimisticRoute?.({
-      _id: crypto.randomUUID(),
-      from,
-      to,
-      distanceKm: totalDistanceKm,
-      riskZones,
-      explanation: exp,
-      createdAt: new Date().toISOString(),
-      pinned: false,
-    })
-
-    setFromLabel(from)
-    setToLabel(to)
-
-    /* Resolve place names */
-    const riskySegments = segs.filter((s) => s.level !== "SAFE").slice(0, 6)
-
-    await Promise.all(
-      riskySegments.map(async (s) => {
-        const mid = s.points[Math.floor(s.points.length / 2)]
-        s.placeName = await reverseGeocode(mid[0], mid[1])
-      })
-    )
-
-    setSegments(segs)
-    const clusters = clusterRiskSegments(segs)
-    setRiskClusters(clusters)
-
-    const { best } = getBestDepartureTime(weather, segs)
-    setBestDeparture(best)
-    setSafety(calculateSafety(weather))
-  } catch (err) {
-    console.error("Analyze failed:", err)
-
-    alert("Route could not be fully analyzed. Saving basic route info.")
-
-    /* ✅ PREPARE SAVE PAYLOAD (FAILURE CASE) */
-    savePayload = {
-      from,
-      to,
-      distanceKm: 0,
-      riskZones: 0,
-      explanation: {
-        level: "unknown",
-        score: 0,
-        summary: "Route could not be analyzed",
-        bullets: ["Routing service failed"],
-      },
+    /* ✅ ALWAYS SAVE ROUTE (THIS WAS MISSING EARLIER) */
+    if (savePayload) {
+      await saveRoute(savePayload);
+      setRefreshKey((k) => k + 1);
     }
-  } finally {
-    setLoading(false)
   }
-
-  /* ✅ ALWAYS SAVE ROUTE (THIS WAS MISSING EARLIER) */
-  if (savePayload) {
-    await saveRoute(savePayload)
-    setRefreshKey((k) => k + 1)
-  }
-}
-
 
   function buildRiskGroups(segments: RouteSegment[]) {
     const groups: {
@@ -294,14 +293,31 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 ">
       {/* Header */}
-      <h1 className="text-2xl font-bold">
-        Welcome, {user.firstName || user.emailAddresses[0]?.emailAddress}
+      <div className="flex items-center justify-between">
+        <img
+          src="/logo.svg"
+          alt="SafePath"
+          className="h-12 block scale-150 ml-16"
+        />
+
         <SignOutButton>
-          <button className="ml-5  text-sm underline">Logout</button>
+          <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md font-semibold transition cursor-pointer">
+            Logout
+          </button>
         </SignOutButton>
-      </h1>
+      </div>
+
+      <div className="flex items-center gap-3 max-w-fit">
+        
+        <h1 className="text-2xl font-bold text-gray-800">
+  Welcome, <span className="text-blue-500">{" "}
+          {user.fullName ||
+            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+            user.emailAddresses[0]?.emailAddress}</span>
+</h1>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* LEFT PANEL */}
@@ -360,11 +376,14 @@ export default function DashboardPage() {
             refreshKey={refreshKey}
           />
         </div>
-
         {/* RIGHT PANEL */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Exportable Area (Map + compact result for image) */}
-          <div id="route-export" className="bg-white p-3 rounded-lg shadow">
+        <div className="lg:col-span-3 space-y-6">
+          {/* Map */}
+          <div
+            id="route-export"
+            className="bg-white rounded-2xl border shadow-sm overflow-hidden"
+          >
+            
             <MapView
               segments={segments}
               highlightedIndex={highlightedIndex}
@@ -376,19 +395,23 @@ export default function DashboardPage() {
 
           {/* Supporting Info */}
           {bestDeparture && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <RouteLegend />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="rounded-2xl border bg-white shadow-sm p-3">
+                <RouteLegend />
+              </div>
 
-              <div className="rounded-lg p-3 border bg-white shadow text-sm">
-                <div className="text-gray-500">Best departure time</div>
+              <div className="rounded-2xl border bg-white shadow-sm p-4 text-sm">
+                <div className="text-xs uppercase tracking-wide text-gray-500">
+                  Best departure time
+                </div>
 
-                <div className="flex items-center justify-between mt-1">
-                  <span className="font-semibold text-lg">
+                <div className="flex items-center justify-between mt-2">
+                  <span className="font-semibold text-xl">
                     {bestDeparture.label}
                   </span>
 
                   <span
-                    className={`px-2 py-1 rounded text-xs font-bold ${
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold ${
                       bestDeparture.level === "SAFE"
                         ? "bg-green-100 text-green-700"
                         : bestDeparture.level === "CAUTION"
@@ -400,7 +423,7 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                <div className="text-xs text-gray-600 mt-1">
+                <div className="text-xs text-gray-500 mt-2">
                   Safety score: {bestDeparture.score} · Dangerous segments:{" "}
                   {bestDeparture.dangerPercent}%
                 </div>

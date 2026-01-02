@@ -21,3 +21,29 @@
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background-color: #94a3b8;
 }
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logout-btn {
+  background-color: #dc2626; /* red */
+  color: white;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background-color: #b91c1c;
+}

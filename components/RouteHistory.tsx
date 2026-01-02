@@ -14,10 +14,9 @@ export default function RouteHistory({
   onAnalyze,
   refreshKey,
 }: {
-  onAnalyze: (from: string, to: string) => void
-  refreshKey: number
+  onAnalyze: (from: string, to: string) => void;
+  refreshKey: number;
 }) {
-
   const [routes, setRoutes] = useState<SavedRoute[]>([]);
 
   const refresh = async () => {
@@ -30,9 +29,9 @@ export default function RouteHistory({
     refresh();
   }, []);
 
-useEffect(() => {
-  refresh()
-}, [refreshKey])
+  useEffect(() => {
+    refresh();
+  }, [refreshKey]);
 
   if (routes.length === 0) {
     return (
@@ -41,22 +40,25 @@ useEffect(() => {
       </div>
     );
   }
+
   const addOptimisticRoute = (route: SavedRoute) => {
-  setRoutes((prev) => {
-    // ❌ remove any existing same from→to
-    const filtered = prev.filter(
-      (r) => !(r.from === route.from && r.to === route.to)
-    )
-    return [route, ...filtered]
-  })
-}
+    setRoutes((prev) => {
+      // ❌ remove any existing same from→to
+      const filtered = prev.filter(
+        (r) => !(r.from === route.from && r.to === route.to)
+      );
+      return [route, ...filtered];
+    });
+  };
 
-;(window as any).addOptimisticRoute = addOptimisticRoute
-
+  (window as any).addOptimisticRoute = addOptimisticRoute;
 
   return (
     <div className="rounded-lg border bg-white p-3 shadow text-sm">
-      <div className="font-semibold mb-2">🕘 Recent Routes</div>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+  Recent Routes
+</h2>
+
 
       {/* 👇 Scroll container */}
       <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 scrollbar-thin">
@@ -66,53 +68,60 @@ useEffect(() => {
             layout
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="rounded border p-2 bg-gray-50"
+            className="rounded-xl border bg-gray-50 px-3 py-2"
           >
-            <div className="font-medium">
-              {r.from} → {r.to}
-              {r.pinned && <span className="ml-1">📌</span>}
+            {/* Title */}
+            <div className="flex items-center justify-between">
+              <div className="font-medium text-sm">
+                {r.from} → {r.to}
+                {r.pinned && <span className="ml-1">📌</span>}
+              </div>
+
+              {/* Risk badge */}
+              <span
+                className={`text-[10px] px-2 py-[2px] rounded-full ${
+                  r.explanation.level === "safe"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-yellow-100 text-yellow-700"
+                }`}
+              >
+                {r.explanation.level.toUpperCase()}
+              </span>
             </div>
 
-            <div className="text-xs text-gray-600 mb-2">
-              {r.distanceKm.toFixed(1)} km · {r.explanation.level}
+            {/* Meta */}
+            <div className="mt-1 text-xs text-gray-500">
+              {r.distanceKm.toFixed(1)} km •{" "}
+              {new Date(r.createdAt).toLocaleString()}
             </div>
 
-            <div className="flex gap-2">
+            {/* Actions */}
+            <div className="mt-2 flex gap-2">
               <button
                 onClick={() => onAnalyze(r.from, r.to)}
-                className="flex-1 border rounded px-2 py-1 text-xs hover:bg-white"
+                className="rounded-lg bg-gray-300 text-black px-4 py-2 text-sm hover:opacity-90 active:scale-[0.98]"
+
               >
                 ▶ Analyze
               </button>
 
               <button
                 onClick={async () => {
-                  try {
-                    await togglePin(r._id);
-                    await refresh();
-                    toast.success(r.pinned ? "Route unpinned" : "Route pinned");
-                  } catch {
-                    toast.error("Failed to update pin");
-                  }
+                  await togglePin(r._id);
+                  await refresh();
                 }}
-                className="border rounded px-2 py-1 text-xs hover:bg-white"
+                className="rounded-md border px-2 py-1 text-xs hover:bg-white"
               >
                 {r.pinned ? "Un📌" : "📌"}
               </button>
 
               <button
                 onClick={async () => {
-                  try {
-                    await deleteRoute(r._id);
-                    await refresh();
-                    toast.success("Route deleted");
-                  } catch {
-                    toast.error("Failed to delete route");
-                  }
+                  await deleteRoute(r._id);
+                  await refresh();
                 }}
-                className="border rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                className="rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-50"
               >
                 ❌
               </button>
