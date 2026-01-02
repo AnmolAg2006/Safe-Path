@@ -77,20 +77,20 @@ export default function RouteExportActions({
 
       <button
         onClick={copySummary}
-        className="flex-1 border rounded-md px-3 py-2 text-sm hover:bg-gray-50"
+        className="flex-1 border rounded-md px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
       >
         📋 Copy Summary
       </button>
 
       <button
         onClick={exportJson}
-        className="flex-1 border rounded-md px-3 py-2 text-sm hover:bg-gray-50"
+        className="flex-1 border rounded-md px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
       >
         ⬇️ Export JSON
       </button>
       <button
   onClick={shareWhatsApp}
-  className="flex-1 border rounded-md px-3 py-2 text-sm hover:bg-gray-50"
+  className="flex-1 border rounded-md px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer"
 >
   🟢 Share WhatsApp
 </button>

@@ -28,6 +28,8 @@ import { AIInsight, generateAIInsights } from "@/lib/aiInsights";
 import AIInsightCard from "@/components/AIInsightCard";
 import { RiskCluster, clusterRiskSegments } from "@/lib/riskClustering";
 import { SignOutButton } from "@clerk/nextjs";
+import Header from "@/components/Header";
+import PageTransition from "@/components/PageTransition";
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
@@ -285,40 +287,11 @@ export default function DashboardPage() {
 
     return groups;
   }
-  const riskGroups = buildRiskGroups(segments).sort((a, b) => {
-    if (a.level !== b.level) {
-      return a.level === "DANGER" ? -1 : 1;
-    }
-    return b.segments.length - a.segments.length;
-  });
-
+ 
   return (
+    <PageTransition>
     <div className="p-6 space-y-6 ">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <img
-          src="/logo.svg"
-          alt="SafePath"
-          className="h-12 block scale-150 ml-16"
-        />
-
-        <SignOutButton>
-          <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-md font-semibold transition cursor-pointer">
-            Logout
-          </button>
-        </SignOutButton>
-      </div>
-
-      <div className="flex items-center gap-3 max-w-fit">
-        
-        <h1 className="text-2xl font-bold text-gray-800">
-  Welcome, <span className="text-blue-500">{" "}
-          {user.fullName ||
-            `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
-            user.emailAddresses[0]?.emailAddress}</span>
-</h1>
-      </div>
-
+      <Header/>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* LEFT PANEL */}
         <div className="space-y-4">
@@ -432,6 +405,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-    </div>
+    </div></PageTransition>
   );
 }

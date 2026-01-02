@@ -35,8 +35,15 @@ export default function RouteHistory({
 
   if (routes.length === 0) {
     return (
-      <div className="rounded-lg border bg-white p-3 text-sm text-gray-500">
-        🕘 No recent routes yet
+      <div className="rounded-lg border bg-white p-4 text-sm text-gray-600 space-y-2">
+        <div>🕘 No recent routes yet</div>
+
+        <button
+          onClick={() => onAnalyze("Agra", "Mathura")}
+          className="inline-block text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
+        >
+          <span className="mr-1">✨</span> New here? Try Agra → Mathura
+        </button>
       </div>
     );
   }
@@ -56,9 +63,8 @@ export default function RouteHistory({
   return (
     <div className="rounded-lg border bg-white p-3 shadow text-sm">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-  Recent Routes
-</h2>
-
+        Recent Routes
+      </h2>
 
       {/* 👇 Scroll container */}
       <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1 scrollbar-thin">
@@ -69,7 +75,7 @@ export default function RouteHistory({
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
-            className="rounded-xl border bg-gray-50 px-3 py-2"
+            className="rounded-xl border bg-gray-50 px-3 py-2 cursor-pointer"
           >
             {/* Title */}
             <div className="flex items-center justify-between">
@@ -99,9 +105,13 @@ export default function RouteHistory({
             {/* Actions */}
             <div className="mt-2 flex gap-2">
               <button
-                onClick={() => onAnalyze(r.from, r.to)}
-                className="rounded-lg bg-gray-300 text-black px-4 py-2 text-sm hover:opacity-90 active:scale-[0.98]"
-
+                onClick={() => {
+                  toast.success(`Analyzing route: ${r.from} → ${r.to}`, {
+                    duration: 4000,
+                  });
+                  onAnalyze(r.from, r.to);
+                }}
+                className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm hover:bg-blue-700 active:scale-[0.98] cursor-pointer"
               >
                 ▶ Analyze
               </button>
@@ -110,18 +120,30 @@ export default function RouteHistory({
                 onClick={async () => {
                   await togglePin(r._id);
                   await refresh();
+
+                  toast.success(
+                    r.pinned ? "Route unpinned" : "Route pinned to top",
+                    { duration: 1500 }
+                  );
                 }}
-                className="rounded-md border px-2 py-1 text-xs hover:bg-white"
+                className="rounded-md border px-2 py-1 text-xs hover:bg-white cursor-pointer"
               >
                 {r.pinned ? "Un📌" : "📌"}
               </button>
-
+                
               <button
                 onClick={async () => {
+                  if (!confirm("Are you sure you want to delete this route?")) return;
+
                   await deleteRoute(r._id);
                   await refresh();
+
+                  toast("Route removed", {
+                    icon: "🗑️",
+                    duration: 1500,
+                  });
                 }}
-                className="rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                className="rounded-md border px-2 py-1 text-xs text-red-600 hover:bg-red-50 cursor-pointer"
               >
                 ❌
               </button>

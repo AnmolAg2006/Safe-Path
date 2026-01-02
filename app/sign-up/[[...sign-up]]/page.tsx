@@ -1,10 +1,12 @@
 "use client";
 
+import PageTransition from "@/components/PageTransition";
 import { SignUp } from "@clerk/nextjs";
 import Image from "next/image";
 
 export default function Page() {
   return (
+    <PageTransition>
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <div className="w-full max-w-md scale-125 flex flex-col items-center px-6 py-12">
             <div className="text-center mb-6 ">
@@ -27,6 +29,7 @@ export default function Page() {
             />
           </div>
         </div>
+        </PageTransition>
       );
     }
     
