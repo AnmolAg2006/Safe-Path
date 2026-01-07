@@ -2,18 +2,17 @@
 
 import PageTransition from "@/components/PageTransition";
 import { SignUp } from "@clerk/nextjs";
-import Image from "next/image";
 
 export default function Page() {
   return (
     <PageTransition>
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="w-full max-w-md scale-125 flex flex-col items-center px-6 py-12">
-            <div className="text-center mb-6 ">
+    <div className="min-h-screen flex items-center justify-center scale-75">
+          <div className="w-full max-w-md scale-125 flex flex-col items-center px-6 pb-12">
+            <div className="text-center mb-7 ">
               <img
                 src="/logo.svg"
                 alt="SafePath"
-                className="h-12 block scale-150 ml-16"
+                className="h-12 block scale-140 ml-16 mt-5"
               />
             </div>
     

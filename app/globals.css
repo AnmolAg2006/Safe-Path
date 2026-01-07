@@ -52,3 +52,17 @@
   outline-offset: 2px;
   border-radius: 6px;
 }
+@keyframes auth-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-auth {
+  animation: auth-enter 0.4s ease-out forwards;
+}

@@ -5,7 +5,7 @@ export type WeatherPoint = {
   humidity: number
   wind: number
   condition: string
-  time: string   // ✅ THIS is your forecast time
+  time: string   
 }
 
 

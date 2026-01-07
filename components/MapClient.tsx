@@ -40,7 +40,7 @@ export default function MapClient({
         segments={segments}
         highlightedIndex={highlightedIndex}
         focusPoint={focusPoint}
-        riskClusters={riskClusters}   // ✅ PASS THROUGH
+        riskClusters={riskClusters}  
       />
 {!manualFocus && !focusPoint && <FitBounds points={points} />}
 
